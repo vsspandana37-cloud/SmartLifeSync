@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>SmartLife Sync Ultimate</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:linear-gradient(
+135deg,
+#667eea,
+#764ba2,
+#6B8DD6,
+#8E37D7
+);
+background-size:400% 400%;
+animation:bgAnimation 15s ease infinite;
+min-height:100vh;
+color:white;
+}
+
+@keyframes bgAnimation{
+
+0%{
+background-position:0% 50%;
+}
+
+50%{
+background-position:100% 50%;
+}
+
+100%{
+background-position:0% 50%;
+}
+
+}
+
+.card-box{
+background:rgba(255,255,255,0.15);
+backdrop-filter:blur(15px);
+padding:20px;
+border-radius:20px;
+margin-top:20px;
+box-shadow:0 8px 32px rgba(0,0,0,0.2);
+border:1px solid rgba(255,255,255,0.2);
+transition:0.4s;
+}
+
+.card-box:hover{
+transform:translateY(-5px);
+}
+
+.completed{
+text-decoration:line-through;
+color:#00ff88;
+}
+
+input,
+select{
+background:rgba(255,255,255,0.2)!important;
+border:none!important;
+color:white!important;
+}
+
+input::placeholder{
+color:#eee!important;
+}
+
+.list-group-item{
+background:rgba(255,255,255,0.15)!important;
+color:white!important;
+border:none!important;
+margin-top:10px;
+border-radius:10px!important;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container py-4">
+
+<h1 class="text-center mb-4">
+🚀 SmartLife Sync Ultimate
+</h1>
+
+<div class="card-box text-center">
+
+<h3>🔥 Daily Motivation</h3>
+
+<p id="quote"></p>
+
+</div>
+
+<div class="card-box">
+
+<h3>📊 Dashboard</h3>
+
+<p>Total Tasks:
+<span id="total">0</span>
+</p>
+
+<p>Completed:
+<span id="completed">0</span>
+</p>
+
+<p>Pending:
+<span id="pending">0</span>
+</p>
+
+<p>Productivity:
+<span id="productivity">0</span>%
+</p>
+
+<p>🔥 Streak:
+<span id="streak">1</span> Days
+</p>
+
+</div>
+
+<div class="card-box">
+
+<h3>📝 Register</h3>
+
+<input type="text"
+id="name"
+class="form-control mt-2"
+placeholder="Name">
+
+<input type="email"
+id="email"
+class="form-control mt-2"
+placeholder="Email">
+
+<input type="password"
+id="password"
+class="form-control mt-2"
+placeholder="Password">
+
+<button class="btn btn-primary mt-3"
+onclick="register()">
+Register
+</button>
+
+</div>
+
+<div class="card-box">
+
+<h3>🔐 Login</h3>
+
+<input type="email"
+id="loginEmail"
+class="form-control mt-2"
+placeholder="Email">
+
+<input type="password"
+id="loginPassword"
+class="form-control mt-2"
+placeholder="Password">
+
+<button class="btn btn-success mt-3"
+onclick="login()">
+Login
+</button>
+
+</div>
+
+<div class="card-box">
+
+<h3>✅ Add Task</h3>
+
+<input type="text"
+id="task"
+class="form-control mt-2"
+placeholder="Task">
+
+<select id="priority"
+class="form-select mt-2">
+
+<option>Low</option>
+<option>Medium</option>
+<option>High</option>
+
+</select>
+
+<select id="category"
+class="form-select mt-2">
+
+<option>Study</option>
+<option>Work</option>
+<option>Personal</option>
+
+</select>
+
+<input type="date"
+id="deadline"
+class="form-control mt-2">
+
+<button class="btn btn-warning mt-3"
+onclick="addTask()">
+Add Task
+</button>
+
+<ul id="taskList"
+class="list-group mt-3"></ul>
+
+</div>
+
+<div class="card-box">
+
+<h3>💧 Habit Tracker</h3>
+
+<input type="number"
+id="water"
+class="form-control mt-2"
+placeholder="Water Intake">
+
+<input type="number"
+id="study"
+class="form-control mt-2"
+placeholder="Study Hours">
+
+<input type="number"
+id="exercise"
+class="form-control mt-2"
+placeholder="Exercise Minutes">
+
+<input type="number"
+id="sleep"
+class="form-control mt-2"
+placeholder="Sleep Hours">
+
+<button class="btn btn-info mt-3"
+onclick="saveHabit()">
+Save Habits
+</button>
+
+</div>
+
+<div class="card-box">
+
+<h3>🌦 Weather</h3>
+
+<input type="text"
+id="city"
+class="form-control"
+placeholder="Enter City">
+
+<button class="btn btn-light mt-3"
+onclick="getWeather()">
+Get Weather
+</button>
+
+<p id="weather"></p>
+
+</div>
+
+<div class="card-box text-center">
+
+<h3>⏳ Pomodoro Timer</h3>
+
+<h1 id="timer">
+25:00
+</h1>
+
+<button class="btn btn-danger"
+onclick="startTimer()">
+Start Focus
+</button>
+
+</div>
+
+</div>
+
+
+<script>
+
+window.onload = () => {
+
+if(Notification.permission !== "granted"){
+Notification.requestPermission();
+}
+
+};
+
+const socket = io("http://localhost:5004");
+
+let token = "";
+
+const quotes = [
+
+"Success starts with discipline.",
+
+"Small progress is still progress.",
+
+"Your future depends on today.",
+
+"Consistency beats motivation.",
+
+"Focus creates achievement."
+
+];
+
+window.addEventListener("DOMContentLoaded",()=>{
+
+document.getElementById("quote").innerHTML =
+quotes[Math.floor(Math.random()*quotes.length)];
+
+});
+
+async function register(){
+
+try{
+
+const name=document.getElementById("name").value;
+
+const email=document.getElementById("email").value;
+
+const password=document.getElementById("password").value;
+
+const response=await fetch(
+"http://localhost:5004/register",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+name,
+email,
+password
+})
+});
+
+const data=await response.json();
+
+alert(data.message);
+
+}catch(err){
+
+console.log(err);
+
+alert("Registration Failed");
+
+}
+
+}
+
+async function login(){
+
+try{
+
+const email=document.getElementById("loginEmail").value;
+
+const password=document.getElementById("loginPassword").value;
+
+const response=await fetch(
+"http://localhost:5004/login",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+email,
+password
+})
+});
+
+const data=await response.json();
+
+if(data.token){
+
+token=data.token;
+
+document.getElementById("streak").innerHTML=
+data.streak;
+
+alert("Welcome "+data.name);
+
+loadTasks();
+
+loadDashboard();
+
+}else{
+
+alert(data.message);
+
+}
+
+}catch(err){
+
+console.log(err);
+
+alert("Login Failed");
+
+}
+
+}
+
+async function addTask(){
+
+try{
+
+const task=document.getElementById("task").value;
+
+const priority=document.getElementById("priority").value;
+
+const category=document.getElementById("category").value;
+
+const deadline=document.getElementById("deadline").value;
+
+await fetch(
+"http://localhost:5004/add-task",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"authorization":token
+},
+body:JSON.stringify({
+task,
+priority,
+category,
+deadline
+})
+});
+
+new Notification(
+"Task Added",
+{
+body:"✅ "+task
+}
+);
+
+loadTasks();
+
+loadDashboard();
+
+}catch(err){
+
+console.log(err);
+
+alert("Task Failed");
+
+}
+
+}
+
+async function loadTasks(){
+
+const response=await fetch(
+"http://localhost:5004/tasks",
+{
+headers:{
+"authorization":token
+}
+});
+
+const tasks=await response.json();
+
+const list=document.getElementById("taskList");
+
+list.innerHTML="";
+
+tasks.forEach(task=>{
+
+list.innerHTML+=`
+
+<li class="list-group-item d-flex justify-content-between">
+
+<div class="${task.completed ? 'completed':''}">
+
+${task.task}
+
+<br>
+
+Priority: ${task.priority}
+
+<br>
+
+Category: ${task.category}
+
+<br>
+
+Deadline: ${task.deadline}
+
+</div>
+
+<div>
+
+<button class="btn btn-success btn-sm"
+onclick="completeTask('${task._id}')">
+
+✓
+
+</button>
+
+<button class="btn btn-danger btn-sm"
+onclick="deleteTask('${task._id}')">
+
+X
+
+</button>
+
+</div>
+
+</li>
+
+`;
+
+});
+
+}
+
+async function completeTask(id){
+
+await fetch(
+`http://localhost:5004/complete/${id}`,
+{
+method:"PUT",
+headers:{
+"authorization":token
+}
+});
+
+loadTasks();
+
+loadDashboard();
+
+}
+
+async function deleteTask(id){
+
+await fetch(
+`http://localhost:5004/delete/${id}`,
+{
+method:"DELETE",
+headers:{
+"authorization":token
+}
+});
+
+loadTasks();
+
+loadDashboard();
+
+}
+
+async function loadDashboard(){
+
+const response=await fetch(
+"http://localhost:5004/dashboard",
+{
+headers:{
+"authorization":token
+}
+});
+
+const data=await response.json();
+
+document.getElementById("total").innerHTML=
+data.total;
+
+document.getElementById("completed").innerHTML=
+data.completed;
+
+document.getElementById("pending").innerHTML=
+data.pending;
+
+document.getElementById("productivity").innerHTML=
+data.productivity;
+
+}
+
+async function saveHabit(){
+
+const water=document.getElementById("water").value;
+
+const study=document.getElementById("study").value;
+
+const exercise=document.getElementById("exercise").value;
+
+const sleep=document.getElementById("sleep").value;
+
+await fetch(
+"http://localhost:5004/habit",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"authorization":token
+},
+body:JSON.stringify({
+water,
+study,
+exercise,
+sleep
+})
+});
+
+alert("Habits Saved");
+
+}
+
+async function getWeather(){
+
+const city=document.getElementById("city").value;
+
+const response=await fetch(
+`http://localhost:5004/weather/${city}`
+);
+
+const data=await response.json();
+
+document.getElementById("weather").innerHTML=
+`${data.name}: ${data.main.temp}°C`;
+
+}
+
+socket.on("task-added",()=>{
+
+loadTasks();
+
+loadDashboard();
+
+});
+
+setInterval(()=>{
+
+new Notification(
+"Health Reminder",
+{
+body:"💧 Drink Water"
+}
+);
+
+},3600000);
+
+let time=1500;
+
+function startTimer(){
+
+const timer=document.getElementById("timer");
+
+const interval=setInterval(()=>{
+
+let minutes=Math.floor(time/60);
+
+let seconds=time%60;
+
+seconds=seconds<10
+? "0"+seconds
+: seconds;
+
+timer.innerHTML=
+`${minutes}:${seconds}`;
+
+time--;
+
+if(time<0){
+
+clearInterval(interval);
+
+new Notification(
+"Pomodoro Completed",
+{
+body:"🎉 Great Job!"
+}
+);
+
+}
+
+},1000);
+
+}
+
+</script>
